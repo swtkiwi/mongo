@@ -17,6 +17,8 @@ from buildscripts.resmokelib import errors
 from . import pipe  # pylint: disable=wrong-import-position
 from .. import utils  # pylint: disable=wrong-import-position
 
+import signal
+
 # Attempt to avoid race conditions (e.g. hangs caused by a file descriptor being left open) when
 # starting subprocesses concurrently from multiple threads by guarding calls to subprocess.Popen()
 # with a lock. See https://bugs.python.org/issue2320 and https://bugs.python.org/issue12739 as
@@ -234,6 +236,12 @@ class Process(object):
         sb.extend(self.args)
 
         return " ".join(sb)
+
+    def pause(self):
+        self._process.send_signal(signal.SIGSTOP)
+
+    def resume(self):
+        self._process.send_signal(signal.SIGCONT)
 
     def __str__(self):
         if self.pid is None:

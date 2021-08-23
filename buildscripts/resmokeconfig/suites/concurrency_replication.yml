@@ -26,22 +26,34 @@ executor:
     tests: true
   config:
     shell_options:
-      readMode: commands
+      global_vars:
+        TestData:
+          disableImplicitSessions: true
   hooks:
   # The CheckReplDBHash hook waits until all operations have replicated to and have been applied
   # on the secondaries, so we run the ValidateCollections hook after it to ensure we're
   # validating the entire contents of the collection.
   #
   # TODO SERVER-26466: Add CheckReplOplogs hook to the concurrency suite.
-  - class: CheckReplDBHashInBackground
-  - class: ValidateCollectionsInBackground
-  - class: CheckReplDBHash
-  - class: ValidateCollections
-  - class: CleanupConcurrencyWorkloads
+  #- class: CheckReplDBHashInBackground
+  #- class: ValidateCollectionsInBackground
+  #- class: CheckReplDBHash
+  #- class: ValidateCollections
+  #- class: CleanupConcurrencyWorkloads
+  - class: SimulateCrashHook
   fixture:
     class: ReplicaSetFixture
     mongod_options:
+      syncdelay: 20
+      wiredTigerCacheSizeGB: .30
+      wiredTigerEngineConfigString: timing_stress_for_test=[history_store_checkpoint_delay,checkpoint_slow]
       oplogSize: 1024
       set_parameters:
+        TransactionRecordMinimumLifetimeMinutes: 1
+        localLogicalSessionTimeoutMinutes: 1
+        logicalSessionRefreshMillis: 10000
         enableTestCommands: 1
-    num_nodes: 3
+        roleGraphInvalidationIsFatal: 1
+        wiredTigerEvictionDebugMode: true
+        disableLogicalSessionCacheRefresh: false
+    num_nodes: 2

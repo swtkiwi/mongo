@@ -98,6 +98,7 @@
 #include "mongo/util/scopeguard.h"
 #include "mongo/util/testing_proctor.h"
 #include "mongo/util/time_support.h"
+#include "mongo/platform/random.h"
 
 #if !defined(__has_feature)
 #define __has_feature(x) 0
@@ -1908,9 +1909,15 @@ void WiredTigerKVEngine::_ensureIdentPath(StringData ident) {
 void WiredTigerKVEngine::setJournalListener(JournalListener* jl) {
     return _sessionCache->setJournalListener(jl);
 }
+PseudoRandom _randomGenerator(100);
 
 void WiredTigerKVEngine::setStableTimestamp(Timestamp stableTimestamp, bool force) {
     if (stableTimestamp.isNull()) {
+        return;
+    }
+
+    if (_stableTimestamp.load() > 0 && _randomGenerator.nextCanonicalDouble() < 0.90) {
+        // update the oldest/stable less often
         return;
     }
 
