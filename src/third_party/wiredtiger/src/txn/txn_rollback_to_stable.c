@@ -311,7 +311,7 @@ __rollback_check_if_txnid_non_committed(WT_SESSION_IMPL *session, uint64_t txnid
      */
     if (txnid < conn->recovery_ckpt_snap_min)
         return (false);
-    else if (txnid > conn->recovery_ckpt_snap_max)
+    else if (txnid >= conn->recovery_ckpt_snap_max)
         return (true);
 
     /*
