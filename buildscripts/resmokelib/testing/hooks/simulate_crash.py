@@ -23,7 +23,8 @@ def validate(mdb, logger, orig_port):
                     logger.info("DBG. FAILURE!\nCmdLineOpts: {}\nValidate Response: {}",
                                 pprint.pformat(mdb.admin.command("getCmdLineOpts")),
                                 pprint.pformat(resp))
-                    raise "failed"
+                    return False
+    return True
 
 class BGJob(threading.Thread):
     def __init__(self, hook):
@@ -33,6 +34,7 @@ class BGJob(threading.Thread):
         self._lock = threading.Lock()
         self._is_alive = True
         self.backup_num = 0
+        self.found_error = False
 
     def run(self):
         while True:
@@ -41,7 +43,11 @@ class BGJob(threading.Thread):
                     break
 
             self._hook.pause_and_copy(self.backup_num)
-            self._hook.validate_all(self.backup_num)
+            if not self._hook.validate_all(self.backup_num):
+                self.found_error = True
+                self._hook.running_test.fixture.teardown()
+                self.is_alive = False
+                return
             time.sleep(random.randint(1, 5))
             self.backup_num += 1
 
@@ -56,6 +62,9 @@ class SimulateCrashHook(interface.Hook):
         interface.Hook.__init__(self, hook_logger, fixture, "Simulate crashes by sigstopping and copying the datafiles with DirectI/O")
         self.logger = hook_logger
         self.last_validate_port = 19000
+
+    def has_failed(self):
+        return self.found_error
 
     def before_suite(self, test_report):
         """Test runner calls this exactly once before they start running the suite."""
@@ -114,9 +123,12 @@ class SimulateCrashHook(interface.Hook):
                                    '--logpath', 'tmp/validate.log'])
             mdb.start()
             client = pymongo.MongoClient('localhost:{}'.format(validate_port))
-            validate(client, self.logger, node.port)
+            is_valid = validate(client, self.logger, node.port)
             mdb.stop()
+            if not is_valid:
+                return False
             shutil.rmtree(path, ignore_errors=True)
+            return True
 
     def after_suite(self, test_report):
         """Invoke by test runner calls this exactly once after all tests have finished executing.
@@ -128,7 +140,7 @@ class SimulateCrashHook(interface.Hook):
 
     def before_test(self, test, test_report):
         """Each test will call this before it executes."""
-        pass
+        self.running_test = test
 
     def after_test(self, test, test_report):
         """Each test will call this after it executes."""

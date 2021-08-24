@@ -34,6 +34,9 @@ class Hook(object, metaclass=registry.make_registry_metaclass(_HOOKS)):
         self.fixture = fixture
         self.description = description
 
+    def has_failed(self):
+        return False
+
     def before_suite(self, test_report):
         """Test runner calls this exactly once before they start running the suite."""
         pass
